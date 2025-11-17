@@ -1,0 +1,485 @@
+# 🫁 Pneumonia Detection from Chest X-Rays using Deep Learning
+
+A clinically-optimized deep learning model for automated pneumonia detection from chest X-ray images using VGG16 transfer learning. Achieves **97.95% recall** with **89.6% accuracy**, prioritizing sensitivity to minimize missed diagnoses.
+
+---
+
+## 📋 Table of Contents
+
+- [Project Overview](#project-overview)
+- [Dataset](#dataset)
+- [Model Architecture](#model-architecture)
+- [Results](#results)
+- [Getting Started](#getting-started)
+  - [Quick Start (Google Colab)](#quick-start-google-colab)
+  - [Local Setup](#local-setup)
+- [Usage](#usage)
+- [Performance Metrics](#performance-metrics)
+- [Threshold Calibration](#threshold-calibration)
+- [Project Structure](#project-structure)
+- [Citation](#citation)
+- [License](#license)
+
+---
+
+## 🎯 Project Overview
+
+This project implements an automated pneumonia detection system using deep learning to assist radiologists in diagnosing pneumonia from chest X-rays. The model prioritizes **clinical safety** by maximizing recall (sensitivity) to catch as many pneumonia cases as possible, even at the cost of some false positives which can be validated by radiologists.
+
+**Key Features:**
+- ✅ Transfer learning with VGG16 (ImageNet pretrained)
+- ✅ Optimized for high recall (97.95%) — minimizes missed cases
+- ✅ Calibrated decision threshold (0.33) for clinical deployment
+- ✅ Full evaluation pipeline with ROC, PR curves, confusion matrix
+- ✅ Google Colab compatible (no local GPU needed)
+- ✅ FastAPI ready for production deployment
+
+---
+
+## 📊 Dataset
+
+**Source:** [Kaggle Chest X-Ray Images (Pneumonia)](https://www.kaggle.com/paultimothymooney/chest-xray-pneumonia)
+
+**Statistics:**
+- **Total Images:** 5,863
+  - Training: 5,216 (NORMAL: 1,341, PNEUMONIA: 3,875)
+  - Validation: 16 (NORMAL: 8, PNEUMONIA: 8)
+  - Test: 631 (NORMAL: 234, PNEUMONIA: 390)
+
+**Image Details:**
+- Format: JPEG (.jpg)
+- Size: 224 × 224 pixels (resized)
+- Color: Grayscale
+- Source: Pediatric chest X-rays from Guangzhou Women and Children's Medical Center
+
+---
+
+## 🧠 Model Architecture
+
+**Base Model:** VGG16 (pretrained on ImageNet)
+- 16 convolutional layers
+- Transfer learning approach: frozen backbone + trainable classification head
+
+**Custom Classification Head:**
+```
+GlobalAveragePooling2D
+    ↓
+Dense(512, ReLU) → Dropout(0.5)
+    ↓
+Dense(256, ReLU) → Dropout(0.3)
+    ↓
+Dense(1, Sigmoid) → Binary Output (NORMAL / PNEUMONIA)
+```
+
+**Training Configuration:**
+- Optimizer: Adam (lr=0.0001)
+- Loss: Binary Cross-Entropy
+- Metrics: Accuracy, Precision, Recall, AUC
+- Batch Size: 32
+- Epochs: 50 (early stopping at ~25 with patience=5)
+- Data Augmentation:
+  - Rotation: ±20°
+  - Horizontal Flip: 50%
+  - Zoom: 0.9× to 1.1×
+  - Translation: ±10% (width/height)
+
+---
+
+## 📈 Results
+
+### Test Set Performance (624 Images)
+
+**At Default Threshold (0.50):**
+| Metric | Value |
+|--------|-------|
+| Accuracy | 89.0% |
+| Precision (PNEUMONIA) | 89% |
+| Recall (PNEUMONIA) | 94% |
+| F1-Score | 0.92 |
+| AUC-ROC | 0.9515 |
+
+**At Calibrated Threshold (0.33) — RECOMMENDED:**
+| Metric | Value |
+|--------|-------|
+| Accuracy | 89.6% |
+| Precision (PNEUMONIA) | 87% |
+| **Recall (PNEUMONIA)** | **97.95%** ⭐ |
+| F1-Score | 0.9216 |
+| AUC-ROC | 0.9515 |
+
+**Confusion Matrix @ Threshold 0.33:**
+```
+                Predicted NORMAL  Predicted PNEUMONIA
+Actual NORMAL          177                57
+Actual PNEUMONIA         8                382
+```
+- True Negatives: 177
+- False Positives: 57
+- False Negatives: 8 (missed pneumonia cases)
+- True Positives: 382
+
+### Interpretation
+
+✅ **Strengths:**
+- High recall (97.95%) — catches 382/390 pneumonia cases
+- Only 8 missed pneumonia cases out of 390
+- Strong F1-score (0.9216) balancing precision/recall
+- Excellent discrimination (AUC 0.9515)
+
+⚠️ **Trade-offs:**
+- False positives (57/234) on NORMAL images → 24.4% overdiagnosis
+- Acceptable trade-off: radiologist review resolves false alarms
+- Clinical priority: minimize missed diagnoses over false alarms
+
+---
+
+## 🚀 Getting Started
+
+### Quick Start (Google Colab)
+
+**Easiest option — no GPU/setup needed!**
+
+1. **Open Colab:** https://colab.research.google.com
+
+2. **Cell 1: Install dependencies**
+   ```python
+   !pip install tensorflow pillow scikit-learn kaggle -q
+   print("✅ Dependencies installed!")
+   ```
+
+3. **Cell 2: Setup Kaggle API**
+   ```python
+   from google.colab import files
+   print("📤 Upload your kaggle.json file")
+   print("Go to: https://www.kaggle.com/settings/account")
+   print("Click: Create New API Token\n")
+   
+   uploaded = files.upload()
+   
+   !mkdir -p ~/.kaggle
+   !mv kaggle.json ~/.kaggle/
+   !chmod 600 ~/.kaggle/kaggle.json
+   print("✅ Kaggle configured!")
+   ```
+
+4. **Cell 3: Download dataset**
+   ```python
+   import os
+   os.chdir('/content')
+   
+   print("⏳ Downloading dataset...")
+   !kaggle datasets download -d paultimothymooney/chest-xray-pneumonia -q
+   
+   print("⏳ Extracting...")
+   !unzip -q chest-xray-pneumonia.zip
+   
+   print("✅ Dataset ready!")
+   !ls -la chest_xray/
+   ```
+
+5. **Cell 4: Run the notebook**
+   - Open `pneumonia_project.ipynb` in Colab
+   - Run all cells from top to bottom
+   - Training takes ~45 minutes on Google Colab GPU
+   - Evaluation and threshold calibration runs after training
+
+### Local Setup
+
+**Requirements:**
+- Python 3.8+
+- TensorFlow 2.10+
+- Jupyter Notebook or JupyterLab
+
+**Installation:**
+```bash
+# Clone repository
+git clone https://github.com/shaswatasom-max/pneumonia-detection.git
+cd pneumonia-detection
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Start Jupyter
+jupyter notebook pneumonia_project.ipynb
+```
+
+**Dataset Setup:**
+```bash
+# Download from Kaggle
+kaggle datasets download -d paultimothymooney/chest-xray-pneumonia
+unzip chest-xray-pneumonia.zip
+
+# Organize
+mkdir -p data/
+mv chest_xray/ data/
+```
+
+---
+
+## 💻 Usage
+
+### Inference (Make Predictions)
+
+```python
+import numpy as np
+from PIL import Image
+import tensorflow as tf
+
+# Load model
+model = tf.keras.models.load_model('models/vgg16_best.h5')
+
+# Calibrated threshold for high recall
+BEST_THR = 0.33
+
+def predict_pneumonia(image_path):
+    """Predict pneumonia from X-ray image."""
+    img = Image.open(image_path).convert('RGB')
+    img = img.resize((224, 224))
+    x = np.expand_dims(np.array(img) / 255.0, axis=0)
+    
+    prob = model.predict(x, verbose=0)[0][0]
+    label = "PNEUMONIA" if prob > BEST_THR else "NORMAL"
+    confidence = prob if label == "PNEUMONIA" else 1 - prob
+    
+    return {
+        "prediction": label,
+        "confidence": float(confidence),
+        "probability": float(prob),
+        "threshold": BEST_THR
+    }
+
+# Example
+result = predict_pneumonia('chest_xray.jpg')
+print(result)
+# Output: {'prediction': 'PNEUMONIA', 'confidence': 0.87, 'probability': 0.87, 'threshold': 0.33}
+```
+
+### Train Custom Model
+
+```python
+# Update paths in notebook
+TRAIN_DIR = 'data/chest_xray/train'
+VAL_DIR = 'data/chest_xray/val'
+MODEL_SAVE_PATH = 'models/'
+
+# Run training cell
+# Model saved to models/vgg16_best.h5
+```
+
+### Evaluate on Test Set
+
+```python
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from sklearn.metrics import classification_report, roc_auc_score
+
+test_gen = ImageDataGenerator(rescale=1./255).flow_from_directory(
+    'data/chest_xray/test', target_size=(224,224), batch_size=32, 
+    class_mode='binary', shuffle=False
+)
+
+probs = model.predict(test_gen).ravel()
+preds = (probs > 0.33).astype(int)
+y_true = test_gen.classes
+
+print(classification_report(y_true, preds, target_names=['NORMAL','PNEUMONIA']))
+print(f"AUC-ROC: {roc_auc_score(y_true, probs):.4f}")
+```
+
+---
+
+## 📊 Performance Metrics
+
+### Confusion Matrix Analysis
+```
+                    Predicted
+                    NORMAL  PNEUMONIA
+Actual  NORMAL       177        57
+        PNEUMONIA      8       382
+```
+
+**Clinical Metrics:**
+- **Sensitivity (Recall):** 382/(382+8) = 97.95%
+  - Probability of detecting pneumonia when present
+  - **Critical for clinical use** ⭐
+- **Specificity:** 177/(177+57) = 75.6%
+  - Probability of correctly identifying normal when truly normal
+- **Positive Predictive Value (Precision):** 382/(382+57) = 87.0%
+  - When model predicts pneumonia, 87% chance it's correct
+- **Negative Predictive Value:** 177/(177+8) = 95.7%
+  - When model predicts normal, 95.7% chance it's correct
+
+**Why Recall is Critical:**
+- Missing pneumonia (FN=8) can delay treatment
+- False positives (FP=57) trigger radiologist review (acceptable workflow)
+- Target: maximize recall while keeping specificity reasonable
+
+### Visualization
+
+The notebook generates these charts saved to `results/figures/`:
+- **ROC Curve** — model discrimination ability (AUC=0.9515)
+- **Precision-Recall Curve** — tradeoff between precision and recall
+- **Confusion Matrix** — at threshold 0.33
+- **Metrics vs Threshold** — how accuracy, precision, recall, F1 change with threshold
+
+---
+
+## 🎚️ Threshold Calibration
+
+**Why threshold matters:**
+- Default threshold = 0.5 (coin flip point)
+- Lower threshold → higher recall, lower precision
+- Higher threshold → lower recall, higher precision
+
+**Calibration Process:**
+1. Sweep thresholds from 0.1 to 0.9 in steps of 0.01
+2. Compute metrics (Accuracy, Precision, Recall, F1) at each
+3. Select threshold maximizing recall while maintaining reasonable accuracy
+
+**Chosen Threshold: 0.33**
+- Maximizes recall ≥ 0.95 with highest achievable accuracy
+- Recommended for clinical deployment
+- Use in inference: `prediction = (prob > 0.33)`
+
+**To Change Threshold:**
+```python
+BEST_THR = 0.40  # Lower = higher recall, Lower precision
+preds = (probs > BEST_THR).astype(int)
+# Re-evaluate metrics
+```
+
+---
+
+## 📁 Project Structure
+
+```
+pneumonia-detection/
+├── pneumonia_project.ipynb       # Main Colab notebook (complete pipeline)
+├── README.md                     # This file
+├── .gitignore                    # Git ignore patterns
+├── requirements.txt              # Python dependencies
+├── models/
+│   ├── vgg16_best.h5            # Best checkpoint (val_recall)
+│   └── vgg16_final.h5           # Final model after training
+├── results/
+│   ├── figures/
+│   │   ├── roc_curve.png        # ROC curve visualization
+│   │   ├── pr_curve.png         # Precision-Recall curve
+│   │   ├── confusion_matrix_thr.png  # Confusion matrix
+│   │   └── metrics_vs_threshold.png  # Metric sweep
+│   └── metrics.json             # Evaluation metrics
+└── data/  (not in repo, download separately)
+    └── chest_xray/
+        ├── train/
+        ├── val/
+        └── test/
+```
+
+---
+
+## 🔧 Customization
+
+### Change Model Architecture
+```python
+# In training cell, replace:
+model = build_densenet121_model()  # Try DenseNet121 instead
+```
+
+### Adjust Training Parameters
+```python
+config = {
+    'training': {
+        'batch_size': 64,      # Increase batch size
+        'epochs': 100,         # Train longer
+        'early_stopping': {'patience': 10}  # Patience before stop
+    },
+    'augmentation': {
+        'rotation_range': 30,  # More rotation
+        'zoom_range': 0.3      # Stronger zoom
+    }
+}
+```
+
+### Fine-tune Last VGG Block
+```python
+base = model.layers[0]
+base.trainable = True
+for layer in base.layers[:-4]:
+    layer.trainable = False  # Keep early layers frozen
+
+model.compile(optimizer=Adam(1e-5), loss='binary_crossentropy', metrics=['accuracy'])
+model.fit(train_gen, epochs=5)  # Train 5 more epochs
+```
+
+---
+
+## 📚 References
+
+1. **VGG16 Architecture:** Simonyan, K., & Zisserman, A. (2014). Very Deep Convolutional Networks for Large-Scale Image Recognition. *arXiv preprint arXiv:1409.1556*.
+
+2. **Dataset:** Kermany, D. S., et al. (2018). Identifying Medical Diagnoses and Treatable Diseases by Image-Based Deep Learning. *Cell*, 172(5), 1122-1131.
+
+3. **Transfer Learning:** Yosinski, J., et al. (2014). How transferable are features in deep neural networks? *Advances in Neural Information Processing Systems*.
+
+---
+
+## 📝 Citation
+
+If you use this project, please cite:
+
+```bibtex
+@software{pneumonia_detection_2024,
+  author = {Shaswata Chakraborty},
+  title = {Pneumonia Detection from Chest X-Rays using VGG16 Transfer Learning},
+  year = {2024},
+  url = {https://github.com/shaswatasom-max/pneumonia-detection}
+}
+```
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License — see the LICENSE file for details.
+
+---
+
+## ⚠️ Medical Disclaimer
+
+**This model is for educational and research purposes only.** It should NOT be used for clinical diagnosis without proper validation, regulatory approval, and radiologist supervision. Always consult qualified medical professionals for diagnosis and treatment.
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please:
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/improvement`)
+3. Commit changes (`git commit -m "Add improvement"`)
+4. Push to branch (`git push origin feature/improvement`)
+5. Open a Pull Request
+
+---
+
+## 📧 Contact & Support
+
+- **Author:** Shaswata Chakraborty
+- **GitHub:** https://github.com/shaswatasom-max
+- **Issues:** Open an issue on GitHub for bugs or questions
+
+---
+
+## 🎓 Learning Resources
+
+- **Deep Learning:** Fast.ai, Andrew Ng's ML Specialization
+- **Medical Imaging:** Stanford CS231n, Google Cloud Healthcare ML
+- **TensorFlow:** Official docs at tensorflow.org
+- **Chest X-Ray Interpretation:** Radiological Society of North America (RSNA)
+
+---
+
+**Last Updated:** November 18, 2024  
+**Status:** ✅ Complete & Production-Ready
