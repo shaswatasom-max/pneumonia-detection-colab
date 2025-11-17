@@ -1,0 +1,111 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyc
+*.egg-info/
+dist/
+build/
+.Python
+*.egg
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+.jupyter_cache/
+
+# Data and Datasets
+data/
+datasets/
+chest_xray/
+*.zip
+*.tar
+*.tar.gz
+*.7z
+*.rar
+*.iso
+
+# Model Files
+models/
+*.h5
+*.hdf5
+*.pb
+*.onnx
+*.pt
+*.ckpt
+*.pth
+*.keras
+*.joblib
+*.pkl
+*.pickle
+
+# Results and Outputs
+results/
+outputs/
+predictions/
+logs/
+*.log
+runs/
+
+# Kaggle and Secrets
+kaggle.json
+.kaggle/
+*.key
+*.token
+.env
+*.env
+config.json
+secrets.json
+credentials.json
+.aws/
+.gcp/
+
+# IDE and Editor Files
+.vscode/
+.idea/
+*.code-workspace
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Virtual Environments
+venv/
+env/
+ENV/
+.venv
+env.bak/
+venv.bak/
+
+# OS-Specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Temporary Files
+*.tmp
+*.temp
+*.bak
+*.cache
+*~
+.~*
+
+# Test Coverage
+.coverage
+.pytest_cache/
+htmlcov/
+.tox/
+
+# Documentation
+site/
+docs/_build/
